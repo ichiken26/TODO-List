@@ -1,10 +1,9 @@
-# セットアップコマンド一覧
-
-このプロジェクトを初めてセットアップする際に必要なコマンドを順番に記載しています。
+# セットアップガイド
 
 ## 前提条件
 
-- Node.js 22.16.0 以上がインストールされていること
+- Node.js 22.16.0 以上
+- Docker（ローカル開発用）
 
 ## セットアップ手順
 
@@ -19,98 +18,123 @@ node --version
 ### 2. nvm を使用する場合（推奨）
 
 ```bash
-# nvm がインストールされているか確認
-nvm --version
-
-# プロジェクトで指定された Node.js バージョンをインストール
 nvm install 22.16.0
-
-# プロジェクトで指定された Node.js バージョンを使用
 nvm use 22.16.0
 ```
 
-### 3. プロジェクトディレクトリに移動
-
-```bash
-cd TODO-List
-```
-
-### 4. 依存関係のインストール
+### 3. 依存関係のインストール
 
 ```bash
 npm install
 ```
 
-**所要時間**: 1-3分程度（ネットワーク速度による）
+### 4. DynamoDB Local の起動
 
-### 5. 開発サーバーの起動
+```bash
+docker compose up -d dynamodb-local
+```
+
+### 5. DynamoDB テーブルの作成
+
+```bash
+# usersテーブル
+aws dynamodb create-table \
+  --table-name users \
+  --attribute-definitions \
+    AttributeName=id,AttributeType=S \
+    AttributeName=user_name,AttributeType=S \
+  --key-schema \
+    AttributeName=id,KeyType=HASH \
+  --global-secondary-indexes \
+    IndexName=user_name-index,KeySchema=[{AttributeName=user_name,KeyType=HASH}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=5,WriteCapacityUnits=5} \
+  --billing-mode PROVISIONED \
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+  --endpoint-url http://localhost:8000
+
+# todosテーブル
+aws dynamodb create-table \
+  --table-name todos \
+  --attribute-definitions \
+    AttributeName=partition_key,AttributeType=S \
+    AttributeName=id,AttributeType=S \
+  --key-schema \
+    AttributeName=partition_key,KeyType=HASH \
+    AttributeName=id,KeyType=RANGE \
+  --billing-mode PROVISIONED \
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+  --endpoint-url http://localhost:8000
+```
+
+### 6. 環境変数の設定
+
+`.env.local` を作成:
+
+```bash
+AWS_REGION=ap-northeast-1
+AWS_ENDPOINT=http://localhost:8000
+AWS_ACCESS_KEY_ID=local
+AWS_SECRET_ACCESS_KEY=local
+DYNAMODB_TABLE_USERS=users
+DYNAMODB_TABLE_TODOS=todos
+JWT_SECRET=your-secret-key-here
+```
+
+### 7. 開発サーバーの起動
 
 ```bash
 npm run dev
 ```
 
-**期待される出力**: 
-```
-✔ Nuxt is ready
-  ➜ Local:   http://localhost:3000/
-```
+ブラウザで `http://localhost:3000` を開いて確認してください。
 
-### 6. ブラウザで確認
+## トラブルシューティング
 
-ブラウザで `http://localhost:3000` を開いてアプリケーションを確認してください。
-
-## エラーが発生した場合
-
-### エラー: "Vueが見れない" / "Cannot find module"
-
-以下のコマンドを順番に実行してください：
+### DynamoDB Local に接続できない
 
 ```bash
-# 1. node_modules を削除
+# Dockerコンテナの状態を確認
+docker compose ps
+
+# ログを確認
+docker compose logs dynamodb-local
+
+# 再起動
+docker compose restart dynamodb-local
+```
+
+### テーブルが作成できない
+
+- DynamoDB Local が起動していることを確認
+- `--endpoint-url http://localhost:8000` を指定していることを確認
+
+### その他のエラー
+
+```bash
+# node_modules を削除して再インストール
 rm -rf node_modules
-
-# 2. 依存関係を再インストール
 npm install
 
-# 3. キャッシュをクリア
+# キャッシュをクリア
 rm -rf .nuxt .output .cache
-
-# 4. 開発サーバーを再起動
 npm run dev
 ```
 
-### エラー: "better-sqlite3" 関連
+## 本番環境（AWS）
+
+環境変数を設定:
 
 ```bash
-# ネイティブモジュールを再ビルド
-npm rebuild better-sqlite3
-
-# その後、開発サーバーを起動
-npm run dev
+AWS_REGION=ap-northeast-1
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+DYNAMODB_TABLE_USERS=users
+DYNAMODB_TABLE_TODOS=todos
+JWT_SECRET=your-secret-key
 ```
 
-### エラー: Node.js のバージョンが異なる
+AWS CLI でテーブルを作成（`--endpoint-url` は不要）:
 
 ```bash
-# nvm を使用している場合
-nvm use 22.16.0
-
-# または、Node.js を直接インストールしている場合
-# Node.js 22.16.0 をインストールしてください
+aws dynamodb create-table --table-name users ...
+aws dynamodb create-table --table-name todos ...
 ```
-
-## よく使うコマンド
-
-| コマンド | 説明 |
-|---------|------|
-| `npm run dev` | 開発サーバーを起動 |
-| `npm run build` | 本番用ビルドを作成 |
-| `npm run preview` | 本番ビルドをプレビュー |
-| `npm install` | 依存関係をインストール |
-
-## 注意事項
-
-- 初回起動時に `data/todos.db` が自動的に作成されます
-- データベースファイルは `.gitignore` で除外されているため、リポジトリには含まれません
-- 開発サーバーを停止する場合は、ターミナルで `Ctrl + C` を押してください
-
