@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // ユーザーを取得
-  const user = getUserByUserName(userName);
+  const user = await getUserByUserName(userName);
   if (!user) {
     throw createError({
       statusCode: 401,

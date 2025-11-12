@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // ユーザー名の重複チェック
-  if (isUserNameExists(userName)) {
+  if (await isUserNameExists(userName)) {
     throw createError({
       statusCode: 409,
       statusMessage: 'このユーザー名は既に登録されています',
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
   const hashedPassword = await hashPassword(password);
 
   // ユーザーを作成
-  const userId = createUser(userName, hashedPassword);
+  const userId = await createUser(userName, hashedPassword);
 
   // JWTトークンを生成
   const token = generateToken(userId, userName);

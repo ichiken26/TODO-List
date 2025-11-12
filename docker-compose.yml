@@ -1,0 +1,15 @@
+# ローカル開発・テスト用のDocker Compose設定
+# 注意: WSL2環境ではDocker Desktopを使用することを推奨します
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb"]
+    volumes:
+      - dynamodb-data:/home/dynamodblocal/data
+    working_dir: /home/dynamodblocal
+
+volumes:
+  dynamodb-data:
+

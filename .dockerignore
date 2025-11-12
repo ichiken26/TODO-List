@@ -1,0 +1,16 @@
+node_modules
+.nuxt
+.output
+.git
+.gitignore
+*.md
+.env
+.env.local
+data
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+.vscode
+.idea
+

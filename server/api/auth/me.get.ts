@@ -6,7 +6,7 @@ import { requireAuth } from '../../utils/auth-guard';
  */
 export default defineEventHandler(async (event) => {
   const decoded = requireAuth(event);
-  const user = getUserById(decoded.userId);
+  const user = await getUserById(decoded.userId);
 
   if (!user) {
     throw createError({
