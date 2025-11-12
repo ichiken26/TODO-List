@@ -5,8 +5,8 @@
         <NuxtLink to="/" class="logo">TODO List</NuxtLink>
         <div class="nav-links">
           <NuxtLink to="/">ホーム</NuxtLink>
-          <NuxtLink to="/edit">編集</NuxtLink>
-          <NuxtLink to="/check">チェック</NuxtLink>
+          <NuxtLink to="/users/edit">編集</NuxtLink>
+          <NuxtLink to="/users/check">チェック</NuxtLink>
         </div>
       </nav>
     </header>

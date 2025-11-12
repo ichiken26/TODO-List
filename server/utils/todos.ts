@@ -1,4 +1,4 @@
-import { dynamoDb, TABLES } from './db';
+import { dynamoDb, TABLES, QueryCommand } from './db';
 
 /**
  * TODOリストを取得する共通関数
@@ -7,13 +7,14 @@ import { dynamoDb, TABLES } from './db';
  * @returns TODOリスト
  */
 export async function getTodosByUserId(userId: string) {
-  const result = await dynamoDb.query({
+  const command = new QueryCommand({
     TableName: TABLES.TODOS,
     KeyConditionExpression: 'partition_key = :userId',
     ExpressionAttributeValues: {
       ':userId': userId,
     },
   });
+  const result = await dynamoDb.send(command);
   
   if (!result.Items) {
     return {

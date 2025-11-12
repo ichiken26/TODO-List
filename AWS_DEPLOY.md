@@ -49,7 +49,50 @@ aws configure
 2. 「アクセスキーを作成」をクリック
 3. アクセスキーIDとシークレットアクセスキーを保存
 
+**重要**: DynamoDBテーブルを作成するには、IAMユーザーに`dynamodb:CreateTable`権限が必要です。権限がない場合は、AWS ConsoleのIAMから以下のポリシーをアタッチしてください：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:ListTables"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
 ### 2. DynamoDBテーブルの作成
+
+まず、Global Secondary Indexの設定用JSONファイルを作成します：
+
+```bash
+# usersテーブル用のGSI設定ファイルを作成
+cat > users-table-gsi.json <<EOF
+[
+  {
+    "IndexName": "user_name-index",
+    "KeySchema": [
+      {
+        "AttributeName": "user_name",
+        "KeyType": "HASH"
+      }
+    ],
+    "Projection": {
+      "ProjectionType": "ALL"
+    }
+  }
+]
+EOF
+```
+
+次に、テーブルを作成します：
 
 ```bash
 # usersテーブル（ユーザー情報）
@@ -60,8 +103,7 @@ aws dynamodb create-table \
     AttributeName=user_name,AttributeType=S \
   --key-schema \
     AttributeName=id,KeyType=HASH \
-  --global-secondary-indexes \
-    IndexName=user_name-index,KeySchema=[{AttributeName=user_name,KeyType=HASH}],Projection={ProjectionType=ALL} \
+  --global-secondary-indexes file://users-table-gsi.json \
   --billing-mode PAY_PER_REQUEST \
   --region ap-northeast-1
 
@@ -84,6 +126,16 @@ aws dynamodb list-tables --region ap-northeast-1
 **重要**: `PAY_PER_REQUEST`（オンデマンド）モードを使用することで、無料枠を最大限活用できます。小規模なアプリケーションでは追加コストは発生しません。
 
 ### 3. IAMロールの作成（Lambda実行用）
+
+**重要**: IAMポリシーとロールを作成するには、IAMユーザーに以下の権限が必要です：
+- `iam:CreatePolicy`
+- `iam:CreateRole`
+- `iam:AttachRolePolicy`
+- `iam:PassRole`
+
+これらの権限がない場合は、AWS ConsoleのIAMから管理者権限を持つユーザーで実行するか、適切な権限を付与してください。
+
+**注意**: `iam:ListPolicies`や`iam:GetRole`権限がない場合でも、ARNを直接構築することでコマンドを実行できます（ドキュメント内で対応済み）。
 
 AmplifyがLambda関数を実行するためのIAMロールを作成:
 
@@ -146,7 +198,8 @@ aws iam create-role \
   }'
 
 # ポリシーをロールにアタッチ
-POLICY_ARN=$(aws iam list-policies --query 'Policies[?PolicyName==`TodoListDynamoDBPolicy`].Arn' --output text)
+# 注意: iam:ListPolicies権限がない場合は、ARNを直接構築します
+POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/TodoListDynamoDBPolicy"
 aws iam attach-role-policy \
   --role-name TodoListLambdaRole \
   --policy-arn ${POLICY_ARN}
@@ -182,7 +235,7 @@ openssl rand -base64 32
    - 「新しい環境を追加」をクリック
    - 環境名: `main`（または任意）
    - ビルド設定を自動検出（Nuxt.jsを検出）
-   - ビルド設定を編集（必要に応じて）:
+   - ビルド設定を編集（**重要**: Nuxt SSR用の設定）:
      ```yaml
      version: 1
      frontend:
@@ -194,21 +247,25 @@ openssl rand -base64 32
            commands:
              - npm run build
        artifacts:
-         baseDirectory: .output/public
+         baseDirectory: .output
          files:
            - '**/*'
        cache:
          paths:
            - node_modules/**/*
      ```
+     
+     **重要**: Nuxt 4のSSRモードでは、`baseDirectory`を`.output`に設定してください。Amplifyが自動的に`.output/server`を検出してLambda関数を生成します。`.output/public`は静的ファイル用なので、SSRモードでは使用しません。
    - 環境変数を追加:
      ```
-     AWS_REGION=ap-northeast-1
+     REGION=ap-northeast-1
      DYNAMODB_TABLE_USERS=users
      DYNAMODB_TABLE_TODOS=todos
      JWT_SECRET=<先ほど生成したJWT Secret>
      NODE_ENV=production
      ```
+     
+     **重要**: AWS Amplifyでは環境変数名が「AWS」で始まることは許可されていません。`AWS_REGION`の代わりに`REGION`を使用してください。
    - 「保存してデプロイ」をクリック
 
 4. **デプロイの完了を待つ**
@@ -270,6 +327,88 @@ export default defineNuxtConfig({
 4. **CloudWatch Logsでログ確認**
    - AWS Console → CloudWatch → Logs
    - `/aws/amplify/` で始まるロググループを確認
+
+### 8. トラブルシューティング
+
+#### 「Welcome」ページが表示される場合
+
+**症状**: デプロイ後に「Your app will appear here once you complete your first deployment.」というWelcomeページが表示される
+
+**原因**: ビルド設定の`baseDirectory`が正しく設定されていない
+
+**解決方法**:
+1. Amplify Console → アプリ → 「Build settings」をクリック
+2. `amplify.yml`またはビルド設定を編集
+3. `baseDirectory`を`.output`に変更（SSRモードの場合）
+4. 変更を保存して再デプロイ
+
+**確認事項**:
+- `npm run build`が正常に完了しているか（ビルドログを確認）
+- `.output/server`ディレクトリが生成されているか
+- 環境変数が正しく設定されているか
+
+#### ビルドエラーが発生する場合
+
+1. **Node.jsバージョンの確認**
+   - Amplify Console → Build settings → Environment variables
+   - `_LIVE_PACKAGE_UPDATES`を追加（オプション）
+   - Node.js 22.xが使用されていることを確認
+
+2. **依存関係のエラー**
+   ```bash
+   # ローカルでビルドをテスト
+   npm ci
+   npm run build
+   ```
+
+3. **ビルドログの確認**
+   - Amplify Console → デプロイ履歴 → ビルドログを確認
+   - エラーメッセージを確認して対処
+
+#### 「Server Error」が表示される場合
+
+**症状**: ログインやAPI呼び出し時に「Server Error」が表示される
+
+**原因**: 主に以下のいずれかが考えられます
+1. DynamoDBへの接続エラー（IAMロールの権限不足）
+2. 環境変数が正しく設定されていない
+3. DynamoDBテーブルが存在しない、またはリージョンが間違っている
+
+**解決方法**:
+
+1. **CloudWatch Logsでエラーを確認**
+   - AWS Console → CloudWatch → Logs
+   - `/aws/amplify/` で始まるロググループを確認
+   - 最新のログストリームを開いてエラーメッセージを確認
+
+2. **IAMロールの確認**
+   - Amplify Console → アプリ → 「App settings」→ 「Environment variables」
+   - Lambda実行ロールが正しく設定されているか確認
+   - 作成した`TodoListLambdaRole`がアタッチされているか確認
+
+3. **環境変数の確認**
+   - 以下の環境変数が設定されているか確認:
+     ```
+     REGION=ap-northeast-1
+     DYNAMODB_TABLE_USERS=users
+     DYNAMODB_TABLE_TODOS=todos
+     JWT_SECRET=<生成したJWT Secret>
+     NODE_ENV=production
+     ```
+
+4. **DynamoDBテーブルの確認**
+   ```bash
+   aws dynamodb list-tables --region ap-northeast-1
+   ```
+   - `users`と`todos`テーブルが存在することを確認
+
+5. **依存関係の確認**
+   - `package.json`に`@aws-sdk/client-dynamodb`と`@aws-sdk/lib-dynamodb`が含まれているか確認
+   - 含まれていない場合は追加:
+     ```bash
+     npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+     ```
+   - 変更をコミットして再デプロイ
 
 ## コスト見積もり（無料枠内）
 

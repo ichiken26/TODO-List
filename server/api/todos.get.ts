@@ -1,20 +1,21 @@
-import { requireAuth } from '../utils/auth-guard';
+// これはサーバー側で動くコード (Nitro)
+// DynamoDBからデータを取得
+
 import { getTodosByUserId } from '../utils/todos';
+import { TEMP_USER_ID } from '~/constants/user';
 
-/**
- * TODOリスト取得API
- * 認証済みユーザーのTODOリストを取得
- */
-export default defineEventHandler(async (event) => {
-  const { userId } = requireAuth(event);
-
+export default defineEventHandler(async () => {
+  console.log('GET /api/todos が叩かれました');
+  
   try {
-    return await getTodosByUserId(userId);
+    const result = await getTodosByUserId(TEMP_USER_ID);
+    return result;
   } catch (error) {
     console.error('TODOの取得に失敗:', error);
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'TODOの取得に失敗しました',
-    });
+    // エラー時は空のデータを返す
+    return {
+      id: TEMP_USER_ID,
+      todos: [],
+    };
   }
 });
