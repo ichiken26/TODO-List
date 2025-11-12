@@ -22,11 +22,28 @@
 import { onMounted } from 'vue';
 import type { TodoItem } from '~/composables/useTodos';
 
-const { todoUser, fetchTodos, updateTodos, createNewTodoItem } = useTodos();
+/**
+ * 認証が必要なページ
+ */
+definePageMeta({
+  middleware: 'auth',
+});
 
-// 編集画面に遷移するたびに、最新のデータを取得
+/**
+ * TODOリストの状態を管理
+ */
+const { todoUser, updateTodos, createNewTodoItem } = useTodos();
+
+/**
+ * 認証ガード
+ */
+const { ensureAuthenticatedAndFetchTodos } = useAuthGuard();
+
+/**
+ * 認証チェックとデータ取得
+ */
 onMounted(async () => {
-  await fetchTodos();
+  await ensureAuthenticatedAndFetchTodos();
 });
 
 const handleAddTodo = async (text: string, priority: number) => {

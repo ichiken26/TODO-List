@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
+import { watch } from 'vue';
 import { useState } from '#app/composables/state';
-import { TEMP_USER_ID } from '~/constants/user';
 import { PRIORITY_LABELS, DEFAULT_PRIORITY } from '~/constants/priority';
 
 /**
@@ -40,6 +40,23 @@ export const useTodos = () => {
   const todoUser = useState<TodoUser | null>('todoUser', () => null);
 
   /**
+   * 認証ユーザーの状態を監視して、ユーザーが変わったらTODOリストをクリア
+   */
+  const authUser = useState<{ id: string; userName: string } | null>('authUser', () => null);
+  watch(() => authUser.value?.id, (newUserId, oldUserId) => {
+    if (newUserId !== oldUserId) {
+      todoUser.value = null;
+    }
+  });
+
+  /**
+   * TODOリストの状態をクリアする
+   */
+  const clearTodos = () => {
+    todoUser.value = null;
+  };
+
+  /**
    * サーバーからTODOリストを取得する
    * エラー時は空のリストを設定
    */
@@ -49,8 +66,8 @@ export const useTodos = () => {
       todoUser.value = data;
     } catch (error) {
       console.error('TODOの取得に失敗:', error);
-      // エラー時は空のデータを設定
-      todoUser.value = { id: TEMP_USER_ID, todos: [] };
+      // エラー時は状態をクリア
+      todoUser.value = null;
     }
   };
 
@@ -66,7 +83,6 @@ export const useTodos = () => {
       const response = await $fetch<TodoUser>('/api/todos', {
         method: 'POST',
         body: {
-          id: todoUser.value?.id || TEMP_USER_ID,
           todos: updatedTodos,
         },
       });
@@ -94,7 +110,11 @@ export const useTodos = () => {
    * @returns 生成されたTODOアイテム
    */
   const createNewTodoItem = (todoText: string, priority: number): TodoItem => {
-    const userId = todoUser.value?.id || TEMP_USER_ID;
+    const userId = todoUser.value?.id;
+    if (!userId) {
+      throw new Error('ユーザーがログインしていません');
+    }
+    
     return {
       id: `${userId}-${uuidv4()}`,
       partitionKey: userId,
@@ -108,6 +128,7 @@ export const useTodos = () => {
     fetchTodos,
     updateTodos,
     createNewTodoItem,
+    clearTodos,
   };
 };
 
@@ -118,5 +139,5 @@ export const useTodos = () => {
  * @returns 優先度のラベル（存在しない場合はデフォルト優先度のラベル）
  */
 export const getPriorityLabel = (priority: number): string => {
-  return PRIORITY_LABELS[priority] || PRIORITY_LABELS[DEFAULT_PRIORITY];
+  return PRIORITY_LABELS[priority] ?? PRIORITY_LABELS[DEFAULT_PRIORITY] ?? '不明';
 };
