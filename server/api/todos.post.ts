@@ -166,10 +166,35 @@ async function handleSave(body: RequestBody, userId: string) {
     return result;
   } catch (error: any) {
     console.error('TODOの保存に失敗:', error);
-    const errorMessage = error?.message || 'TODOの保存に失敗しました';
+    console.error('エラー詳細:', {
+      name: error?.name,
+      message: error?.message,
+      code: error?.code,
+      statusCode: error?.statusCode,
+      region: process.env.REGION || process.env.AWS_REGION,
+      endpoint: process.env.AWS_ENDPOINT,
+      tables: TABLES,
+    });
+    
+    // DynamoDB関連のエラーの場合、より詳細なメッセージを返す
+    let errorMessage = error?.message || 'TODOの保存に失敗しました';
+    let statusCode = 500;
+    
+    if (error?.name === 'ResourceNotFoundException') {
+      errorMessage = 'DynamoDBテーブルが見つかりません。テーブルが作成されているか確認してください。';
+      statusCode = 503;
+    } else if (error?.name === 'AccessDeniedException' || error?.code === 'AccessDenied') {
+      errorMessage = 'DynamoDBへのアクセス権限がありません。IAMロールの設定を確認してください。';
+      statusCode = 503;
+    } else if (error?.name === 'ValidationException') {
+      errorMessage = `DynamoDBのバリデーションエラー: ${error.message}`;
+      statusCode = 400;
+    }
+    
     throw createError({
-      statusCode: 500,
+      statusCode,
       statusMessage: errorMessage,
+      message: errorMessage, // h3の警告に対応
     });
   }
 }

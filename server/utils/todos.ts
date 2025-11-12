@@ -7,14 +7,15 @@ import { dynamoDb, TABLES, QueryCommand } from './db';
  * @returns TODOリスト
  */
 export async function getTodosByUserId(userId: string) {
-  const command = new QueryCommand({
-    TableName: TABLES.TODOS,
-    KeyConditionExpression: 'partition_key = :userId',
-    ExpressionAttributeValues: {
-      ':userId': userId,
-    },
-  });
-  const result = await dynamoDb.send(command);
+  try {
+    const command = new QueryCommand({
+      TableName: TABLES.TODOS,
+      KeyConditionExpression: 'partition_key = :userId',
+      ExpressionAttributeValues: {
+        ':userId': userId,
+      },
+    });
+    const result = await dynamoDb.send(command);
   
   if (!result.Items) {
     return {
@@ -38,8 +39,18 @@ export async function getTodosByUserId(userId: string) {
       return (a.created_at || '').localeCompare(b.created_at || '');
     });
   
-  return {
-    id: userId,
-    todos,
-  };
+    return {
+      id: userId,
+      todos,
+    };
+  } catch (error: any) {
+    console.error('getTodosByUserId エラー:', {
+      userId,
+      tableName: TABLES.TODOS,
+      error: error?.message,
+      code: error?.code,
+      name: error?.name,
+    });
+    throw error; // エラーを再スローして、呼び出し元で処理
+  }
 }
