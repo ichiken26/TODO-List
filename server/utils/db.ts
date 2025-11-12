@@ -1,8 +1,7 @@
 import Database from 'better-sqlite3';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { TEMP_USER_ID } from '~/constants/user';
-import { PRIORITY, DEFAULT_PRIORITY } from '~/constants/priority';
+import { DEFAULT_PRIORITY } from '~/constants/priority';
 
 // データベースファイルのパス
 const dbDir = join(process.cwd(), 'data');
@@ -28,13 +27,39 @@ export function getDatabase(): Database.Database {
 // データベースの初期化（テーブル作成）
 function initializeDatabase(database: Database.Database) {
   // usersテーブル（ユーザー情報）
+  // 既存のテーブルがある場合は、カラムを追加（マイグレーション）
   database.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
+      user_name TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // 既存のテーブルにカラムが存在しない場合は追加（マイグレーション）
+  try {
+    const tableInfo = database.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+    const columnNames = tableInfo.map(col => col.name);
+    
+    if (!columnNames.includes('user_name')) {
+      database.exec(`ALTER TABLE users ADD COLUMN user_name TEXT`);
+    }
+    if (!columnNames.includes('password')) {
+      database.exec(`ALTER TABLE users ADD COLUMN password TEXT`);
+    }
+    
+    // 既存のuser_nameにUNIQUE制約を追加（既存データがある場合はスキップ）
+    try {
+      database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_name ON users(user_name)`);
+    } catch (error) {
+      // 既にUNIQUE制約がある場合は無視
+      console.log('user_name UNIQUE制約は既に存在します');
+    }
+  } catch (error) {
+    console.error('テーブルマイグレーションエラー:', error);
+  }
 
   // todosテーブル（TODOアイテム）
   database.exec(`
@@ -53,42 +78,6 @@ function initializeDatabase(database: Database.Database) {
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_todos_partition_key ON todos(partition_key)
   `);
-
-  // デフォルトユーザーが存在しない場合は作成
-  const userExists = database.prepare('SELECT id FROM users WHERE id = ?').get(TEMP_USER_ID);
-  
-  if (!userExists) {
-    database.prepare('INSERT INTO users (id) VALUES (?)').run(TEMP_USER_ID);
-    
-    // 初期データを挿入（オプション）
-    const initialTodos = [
-      {
-        id: `${TEMP_USER_ID}-uuid1`,
-        partitionKey: TEMP_USER_ID,
-        priority: PRIORITY.HIGH,
-        todo: 'コードレビューのチェック項目を洗い出す',
-      },
-      {
-        id: `${TEMP_USER_ID}-uuid2`,
-        partitionKey: TEMP_USER_ID,
-        priority: PRIORITY.MEDIUM,
-        todo: 'Nuxt 3の勉強をする',
-      },
-    ];
-
-    const insertTodo = database.prepare(`
-      INSERT INTO todos (id, partition_key, priority, todo)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    const insertMany = database.transaction((todos: typeof initialTodos) => {
-      for (const todo of todos) {
-        insertTodo.run(todo.id, todo.partitionKey, todo.priority, todo.todo);
-      }
-    });
-
-    insertMany(initialTodos);
-  }
 }
 
 // データベース接続を閉じる（アプリ終了時など）

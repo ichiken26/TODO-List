@@ -1,0 +1,36 @@
+/**
+ * PostgreSQL用のTODO取得関数の例
+ * 
+ * 使用方法:
+ * 1. このファイルを todos.ts にリネーム
+ * 2. SQLiteのクエリ構文をPostgreSQL用に変更
+ */
+
+import { getDatabase } from './db';
+
+/**
+ * TODOリストを取得する共通関数
+ * 
+ * @param userId - ユーザーID
+ * @returns TODOリスト
+ */
+export async function getTodosByUserId(userId: string) {
+  const db = getDatabase();
+  const result = await db.query(`
+    SELECT id, partition_key as "partitionKey", priority, todo
+    FROM todos
+    WHERE partition_key = $1
+    ORDER BY priority ASC, created_at ASC
+  `, [userId]);
+
+  return {
+    id: userId,
+    todos: result.rows.map(todo => ({
+      id: todo.id,
+      partitionKey: todo.partitionKey,
+      priority: todo.priority,
+      todo: todo.todo,
+    })),
+  };
+}
+

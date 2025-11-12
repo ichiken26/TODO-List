@@ -1,10 +1,10 @@
 <template>
-  <div class="login-page">
-    <div class="login-card">
-      <h1>🔐 ログイン</h1>
-      <p class="subtitle">TODO List アプリにログイン</p>
+  <div class="register-page">
+    <div class="register-card">
+      <h1>📝 新規登録</h1>
+      <p class="subtitle">新しいアカウントを作成</p>
 
-      <form @submit.prevent="handleLogin" class="login-form">
+      <form @submit.prevent="handleRegister" class="register-form">
         <div class="form-group">
           <label for="userName">ユーザー名</label>
           <input
@@ -29,20 +29,21 @@
             :class="{ 'error': hasError }"
             placeholder="パスワードを入力"
           />
+          <p class="password-hint">英数字の混合である必要があります</p>
         </div>
 
         <div v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </div>
 
-        <button type="submit" class="btn-login" :disabled="isLoading">
-          {{ isLoading ? 'ログイン中...' : 'ログイン' }}
+        <button type="submit" class="btn-register" :disabled="isLoading">
+          {{ isLoading ? '登録中...' : '登録' }}
         </button>
       </form>
 
-      <div class="register-link">
-        <p>アカウントをお持ちでない方は</p>
-        <NuxtLink to="/register" class="link-register">新規登録</NuxtLink>
+      <div class="login-link">
+        <p>既にアカウントをお持ちの方は</p>
+        <NuxtLink to="/" class="link-login">ログイン</NuxtLink>
       </div>
     </div>
   </div>
@@ -54,7 +55,7 @@ import { ref, onMounted } from 'vue';
 /**
  * 認証状態を管理
  */
-const { login, fetchCurrentUser } = useAuth();
+const { register, fetchCurrentUser } = useAuth();
 
 /**
  * フォームの状態
@@ -76,21 +77,21 @@ onMounted(async () => {
 });
 
 /**
- * ログイン処理
+ * 登録処理
  */
-const handleLogin = async () => {
+const handleRegister = async () => {
   hasError.value = false;
   errorMessage.value = '';
   isLoading.value = true;
 
   try {
-    const success = await login(userName.value, password.value);
+    const success = await register(userName.value, password.value);
     if (success) {
       await navigateTo('/users');
     }
   } catch (error: any) {
     hasError.value = true;
-    errorMessage.value = error.data?.statusMessage || 'ログインに失敗しました';
+    errorMessage.value = error.data?.statusMessage || '登録に失敗しました';
   } finally {
     isLoading.value = false;
   }
@@ -98,7 +99,7 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-page {
+.register-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -107,7 +108,7 @@ const handleLogin = async () => {
   padding: 2rem;
 }
 
-.login-card {
+.register-card {
   background: white;
   border-radius: 15px;
   padding: 3rem;
@@ -128,7 +129,7 @@ const handleLogin = async () => {
   }
 }
 
-.login-card h1 {
+.register-card h1 {
   font-size: 2rem;
   margin-bottom: 0.5rem;
   text-align: center;
@@ -141,7 +142,7 @@ const handleLogin = async () => {
   margin-bottom: 2rem;
 }
 
-.login-form {
+.register-form {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -176,6 +177,12 @@ const handleLogin = async () => {
   background: #fff5f5;
 }
 
+.password-hint {
+  font-size: 0.85rem;
+  color: #999;
+  margin: 0;
+}
+
 .error-message {
   color: #f5576c;
   font-size: 0.9rem;
@@ -185,7 +192,7 @@ const handleLogin = async () => {
   border-radius: 5px;
 }
 
-.btn-login {
+.btn-register {
   padding: 0.75rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -197,35 +204,36 @@ const handleLogin = async () => {
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.btn-login:hover:not(:disabled) {
+.btn-register:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
 
-.btn-login:disabled {
+.btn-register:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.register-link {
+.login-link {
   margin-top: 2rem;
   text-align: center;
   color: #666;
 }
 
-.register-link p {
+.login-link p {
   margin-bottom: 0.5rem;
 }
 
-.link-register {
+.link-login {
   color: #667eea;
   text-decoration: none;
   font-weight: bold;
   transition: color 0.3s;
 }
 
-.link-register:hover {
+.link-login:hover {
   color: #5568d3;
   text-decoration: underline;
 }
 </style>
+

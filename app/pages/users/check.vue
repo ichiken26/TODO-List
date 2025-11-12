@@ -9,7 +9,7 @@
       <div class="empty-state-icon">📋</div>
       <h3 class="empty-state-title">データがありません</h3>
       <p class="empty-state-message">編集画面でデータを読み込んでください</p>
-      <NuxtLink to="/edit" class="btn-primary">
+      <NuxtLink to="/users/edit" class="btn-primary">
         📝 編集画面へ移動
       </NuxtLink>
     </div>
@@ -18,7 +18,7 @@
       <div class="empty-state-icon">📝</div>
       <h3 class="empty-state-title">TODOがありません</h3>
       <p class="empty-state-message">編集画面でTODOを追加してください</p>
-      <NuxtLink to="/edit" class="btn-primary">
+      <NuxtLink to="/users/edit" class="btn-primary">
         ➕ TODOを追加する
       </NuxtLink>
     </div>
@@ -79,7 +79,22 @@
 import { ref, onMounted } from 'vue';
 import { useCheckedState } from '~/composables/useCheckedState';
 
-const { todoUser, fetchTodos, updateTodos } = useTodos();
+/**
+ * 認証が必要なページ
+ */
+definePageMeta({
+  middleware: 'auth',
+});
+
+/**
+ * TODOリストの状態を管理
+ */
+const { todoUser, updateTodos } = useTodos();
+
+/**
+ * 認証ガード
+ */
+const { ensureAuthenticatedAndFetchTodos } = useAuthGuard();
 
 /**
  * チェック状態を管理するcomposable
@@ -102,10 +117,10 @@ const {
 const showDeleteDialog = ref(false);
 
 /**
- * チェック画面に遷移するたびに、最新のデータを取得
+ * 認証チェックとデータ取得
  */
 onMounted(async () => {
-  await fetchTodos();
+  await ensureAuthenticatedAndFetchTodos();
 });
 
 /**

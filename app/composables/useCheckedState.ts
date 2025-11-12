@@ -1,54 +1,77 @@
 import { ref, computed, watch, type Ref } from 'vue';
 import type { TodoItem, TodoUser } from './useTodos';
 import { STORAGE_KEYS } from '~/constants/storage';
-import { useLocalStorage } from './useLocalStorage';
+
+/**
+ * ユーザーIDに基づいたlocalStorageキーを生成
+ */
+const getStorageKey = (userId: string | null): string => {
+  if (!userId) return STORAGE_KEYS.CHECKED_STATE;
+  return `${STORAGE_KEYS.CHECKED_STATE}-${userId}`;
+};
+
+/**
+ * localStorageから値を読み込む
+ */
+const loadFromStorage = (key: string): Record<string, boolean> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * localStorageに値を保存する
+ */
+const saveToStorage = (key: string, value: Record<string, boolean>): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`localStorageへの保存に失敗 (key: ${key}):`, error);
+  }
+};
 
 /**
  * チェック画面のチェック状態を管理するcomposable
  * localStorageと連携して状態を永続化
+ * ユーザーごとに状態を分離
  * 
  * @param todoUser - TODOユーザーオブジェクトのref（TODOリストを含む）
  * @returns チェック状態の管理機能
  */
 export const useCheckedState = (todoUser: Ref<TodoUser | null>) => {
-  const { load, save } = useLocalStorage<Record<string, boolean>>(
-    STORAGE_KEYS.CHECKED_STATE,
-    {}
-  );
-
   /**
    * チェック状態を管理するref
    * キーはTODOのID、値はチェックされているかどうか
    */
-  const checkedState = ref<Record<string, boolean>>(load());
+  const checkedState = ref<Record<string, boolean>>({});
 
   /**
    * TODOリストが更新されたら、チェック状態を同期
    */
   watch(
     () => todoUser.value,
-    (newUser) => {
-      if (newUser) {
-        const savedState = load();
-        const initialState: Record<string, boolean> = {};
-        const todoIds = new Set(newUser.todos.map(todo => todo.id));
-
-        // 存在するTODOのチェック状態を復元
-        for (const todo of newUser.todos) {
-          initialState[todo.id] = savedState[todo.id] || false;
-        }
-
-        // 削除されたTODOのチェック状態をクリア
-        const cleanedState: Record<string, boolean> = {};
-        for (const [id, checked] of Object.entries(initialState)) {
-          if (todoIds.has(id)) {
-            cleanedState[id] = checked;
-          }
-        }
-
-        checkedState.value = cleanedState;
-        save(cleanedState);
+    (newUser, oldUser) => {
+      if (!newUser || (oldUser && oldUser.id !== newUser.id)) {
+        checkedState.value = {};
+        return;
       }
+
+      // 現在のユーザーIDに基づいたlocalStorageから読み込む
+      const userStorageKey = getStorageKey(newUser.id);
+      const savedState = loadFromStorage(userStorageKey);
+      const cleanedState: Record<string, boolean> = {};
+
+      for (const todo of newUser.todos) {
+        cleanedState[todo.id] = savedState[todo.id] || false;
+      }
+
+      checkedState.value = cleanedState;
+      saveToStorage(userStorageKey, cleanedState);
     },
     { immediate: true }
   );
@@ -59,7 +82,12 @@ export const useCheckedState = (todoUser: Ref<TodoUser | null>) => {
    */
   const updateCheckedState = (newState: Record<string, boolean>) => {
     checkedState.value = newState;
-    save(newState);
+    
+    // 現在のユーザーIDに基づいたlocalStorageに保存
+    if (todoUser.value) {
+      const userStorageKey = getStorageKey(todoUser.value.id);
+      saveToStorage(userStorageKey, newState);
+    }
   };
 
   /**
