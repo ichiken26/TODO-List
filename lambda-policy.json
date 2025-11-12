@@ -1,0 +1,31 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:TransactWriteItems"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-northeast-1:448425191822:table/users",
+        "arn:aws:dynamodb:ap-northeast-1:448425191822:table/users/index/*",
+        "arn:aws:dynamodb:ap-northeast-1:448425191822:table/todos"
+      ]
+    }
+  ]
+}

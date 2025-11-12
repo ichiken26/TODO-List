@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { dynamoDb, TABLES } from './db';
+import { dynamoDb, TABLES, QueryCommand, GetCommand, PutCommand } from './db';
 import { BCRYPT_SALT_ROUNDS } from '../constants/auth';
 
 /**
@@ -37,7 +37,7 @@ export function validatePassword(password: string): { valid: boolean; message?: 
  * ユーザー名の重複チェック
  */
 export async function isUserNameExists(userName: string): Promise<boolean> {
-  const result = await dynamoDb.query({
+  const command = new QueryCommand({
     TableName: TABLES.USERS,
     IndexName: 'user_name-index',
     KeyConditionExpression: 'user_name = :userName',
@@ -46,6 +46,7 @@ export async function isUserNameExists(userName: string): Promise<boolean> {
     },
     Limit: 1,
   });
+  const result = await dynamoDb.send(command);
   
   return (result.Items?.length ?? 0) > 0;
 }
@@ -54,7 +55,7 @@ export async function isUserNameExists(userName: string): Promise<boolean> {
  * ユーザー名でユーザーを取得
  */
 export async function getUserByUserName(userName: string): Promise<{ id: string; userName: string; password: string } | null> {
-  const result = await dynamoDb.query({
+  const command = new QueryCommand({
     TableName: TABLES.USERS,
     IndexName: 'user_name-index',
     KeyConditionExpression: 'user_name = :userName',
@@ -63,6 +64,7 @@ export async function getUserByUserName(userName: string): Promise<{ id: string;
     },
     Limit: 1,
   });
+  const result = await dynamoDb.send(command);
   
   if (!result.Items || result.Items.length === 0) {
     return null;
@@ -80,10 +82,11 @@ export async function getUserByUserName(userName: string): Promise<{ id: string;
  * ユーザーIDでユーザーを取得
  */
 export async function getUserById(userId: string): Promise<{ id: string; userName: string; password: string } | null> {
-  const result = await dynamoDb.get({
+  const command = new GetCommand({
     TableName: TABLES.USERS,
     Key: { id: userId },
   });
+  const result = await dynamoDb.send(command);
   
   if (!result.Item) {
     return null;
@@ -103,7 +106,7 @@ export async function createUser(userName: string, password: string): Promise<st
   const userId = userName;
   const now = new Date().toISOString();
   
-  await dynamoDb.put({
+  const command = new PutCommand({
     TableName: TABLES.USERS,
     Item: {
       id: userId,
@@ -114,6 +117,7 @@ export async function createUser(userName: string, password: string): Promise<st
     },
     ConditionExpression: 'attribute_not_exists(id)',
   });
+  await dynamoDb.send(command);
   
   return userId;
 }

@@ -1,0 +1,18 @@
+[
+  {
+    "IndexName": "user_name-index",
+    "KeySchema": [
+      {
+        "AttributeName": "user_name",
+        "KeyType": "HASH"
+      }
+    ],
+    "Projection": {
+      "ProjectionType": "ALL"
+    },
+    "ProvisionedThroughput": {
+      "ReadCapacityUnits": 5,
+      "WriteCapacityUnits": 5
+    }
+  }
+]

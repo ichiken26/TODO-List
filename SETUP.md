@@ -70,7 +70,7 @@ aws dynamodb create-table \
 `.env.local` を作成:
 
 ```bash
-AWS_REGION=ap-northeast-1
+REGION=ap-northeast-1
 AWS_ENDPOINT=http://localhost:8000
 AWS_ACCESS_KEY_ID=local
 AWS_SECRET_ACCESS_KEY=local
@@ -78,6 +78,8 @@ DYNAMODB_TABLE_USERS=users
 DYNAMODB_TABLE_TODOS=todos
 JWT_SECRET=your-secret-key-here
 ```
+
+**注意**: ローカル開発では`AWS_ENDPOINT`、`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`を使用できますが、AWS Amplifyでは環境変数名が「AWS」で始まることは許可されていません。本番環境では`REGION`のみを使用してください。
 
 ### 7. 開発サーバーの起動
 
@@ -124,13 +126,13 @@ npm run dev
 環境変数を設定:
 
 ```bash
-AWS_REGION=ap-northeast-1
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
+REGION=ap-northeast-1
 DYNAMODB_TABLE_USERS=users
 DYNAMODB_TABLE_TODOS=todos
 JWT_SECRET=your-secret-key
 ```
+
+**注意**: AWS Amplifyでは環境変数名が「AWS」で始まることは許可されていません。`AWS_REGION`の代わりに`REGION`を使用してください。また、AWS AmplifyではIAMロールを使用するため、`AWS_ACCESS_KEY_ID`や`AWS_SECRET_ACCESS_KEY`は不要です。
 
 AWS CLI でテーブルを作成（`--endpoint-url` は不要）:
 
